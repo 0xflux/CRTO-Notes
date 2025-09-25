@@ -41,6 +41,8 @@ Modified By : flux ( Twitter: [https://x.com/0xfluxsec](https://x.com/0xfluxsec)
 - [AppLocker](#applocker)
 - [Data Exfiltration](#data-exfiltration)
 - [Reference](#reference)
+- [Redirectors](#redirector)
+- [TLS](#tls)
 
 
 ---
@@ -2686,6 +2688,29 @@ beacon)
 ```
 
 ---
+
+## Redirector
+
+<a name="REDIRECTOR"></a>
+```shell
+C2=[IP of C2]
+iptables -t nat -I PREROUTING 1 -p tcp --dport 22 -j ACCEPT # Allow SSH into the redirector
+iptables -t nat -A PREROUTING -j DNAT --to-destination $NEW_IP
+iptables -t nat -A POSTROUTING -j MASQUERADE
+iptables -I FORWARD -j ACCEPT
+iptables -P FORWARD ACCEPT
+```
+
+---
+
+## TLS
+
+<a name="TLS"></a>
+If using custom TLS cert on the C2 via malleable profile (or importing a valid cert) check with:
+
+```shell
+openssl s_client -connect <IP>:443 -servername fluxmalware.com -showcerts </dev/null 2>/tmp/openssl_out.txt
+```
 
 ## Reference:
 
