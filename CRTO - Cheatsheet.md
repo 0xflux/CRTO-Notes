@@ -2695,7 +2695,7 @@ beacon)
 ```shell
 C2=[IP of C2]
 iptables -t nat -I PREROUTING 1 -p tcp --dport 22 -j ACCEPT # Allow SSH into the redirector
-iptables -t nat -A PREROUTING -j DNAT --to-destination $NEW_IP
+iptables -t nat -A PREROUTING -j DNAT --to-destination $C2
 iptables -t nat -A POSTROUTING -j MASQUERADE
 iptables -I FORWARD -j ACCEPT
 iptables -P FORWARD ACCEPT
