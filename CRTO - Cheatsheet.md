@@ -43,6 +43,7 @@ Modified By : flux ( Twitter: [https://x.com/0xfluxsec](https://x.com/0xfluxsec)
 - [Reference](#reference)
 - [Redirectors](#redirector)
 - [TLS](#tls)
+- [Kali](#kali)
 
 
 ---
