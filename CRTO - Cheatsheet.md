@@ -2710,6 +2710,9 @@ iptables -P FORWARD ACCEPT
 ## TLS
 
 <a name="TLS"></a>
+The below is also somewhat rudimentory, consider using NGINX redirectors and setting up TLS to terminate 
+on the redirector which proxies into a VPN. See my [private notes](https://github.com/0xflux/pentest-notes/blob/main/infrastructure.md) for advanced steps.
+
 If using custom TLS cert on the C2 via malleable profile (or importing a valid cert) check with:
 
 ```shell
