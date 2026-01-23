@@ -102,6 +102,10 @@ http-post {
 
 http-stager {
 
+	# Use these two if you want a custom stager URI; useful for redirectors and removing fingerprinting etc.
+    # set uri_x86 "/basket32";
+    # set uri_x64 "/basket64";
+
 	server {
 		header "Content-Type" "application/octet-stream";
 		header "Server" "Microsoft IIS/10.0";	
