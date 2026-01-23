@@ -2693,6 +2693,9 @@ beacon)
 ## Redirector
 
 <a name="REDIRECTOR"></a>
+
+The below is very, too rudimentory for advanced tradecraft. Note to self: see my [private notes](https://github.com/0xflux/pentest-notes/blob/main/infrastructure.md) for advanced steps.
+
 ```shell
 C2=[IP of C2]
 iptables -t nat -I PREROUTING 1 -p tcp --dport 22 -j ACCEPT # Allow SSH into the redirector
