@@ -757,6 +757,15 @@ ldapsearch "(ms-MCS-AdmPwd=*)"
 # Users with manage auditing and security log rights
 ldapsearch "(seSecurityPrivilege=*)"
 
+# Search for file servers
+ldapsearch "(&(objectCategory=computer)(description=*file*))"
+
+# Search for servers
+ldapsearch "(&(objectCategory=computer)(operatingSystem=*Server*))"
+
+# Common file server names
+ldapsearch "(&(objectCategory=computer)(|(name=*fs*)(name=*file*)(name=*nas*)(name=*data*)(name=*share*)))"
+
 # AD CS queries start ----------
 
 # Query the domain object
