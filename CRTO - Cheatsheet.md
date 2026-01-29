@@ -672,9 +672,30 @@ ldapsearch "(schemaIDGUID=*)" name,schemaidguid -1 "" CN=Schema,CN=Configuration
 ldapsearch (name=ms-mcs-admpwd) name,schemaidguid 1 "" CN=Schema,CN=Configuration,DC=TARGET,DC=DOMAIN
 
 ######## - marker - ########
+# Domain info
+ldapsearch "(objectClass=domainDNS)"
+
+# Trust relationships
+ldapsearch "(objectClass=trustedDomain)"
+
+# Foreign security principals
+ldapsearch "(objectClass=foreignSecurityPrincipal)"
+
+# GPOs
+ldapsearch "(objectCategory=groupPolicyContainer)"
+
+# OUs
+ldapsearch "(objectClass=organizationalUnit)"
 
 # Get Domain Controllers
 ldapsearch "(&(objectCategory=Computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))"
+
+# ACLs - All Objects (might be noisy - could be better to use the slower queries below?)
+ldapsearch "(objectClass=*)"
+
+# ACLs - Principals (might be noisy - could be better to use the slower queries below?)
+# Will give full info to bloodhound but, again, could be noisy
+ldapsearch "(|(objectCategory=person)(objectCategory=group)(objectCategory=computer))"
 
 # Get all Domain Admins
 ldapsearch "(&(objectCategory=group)(name=Domain Admins))"
@@ -703,6 +724,9 @@ ldapsearch "(&(samAccountType=805306368)(servicePrincipalName=*)(!samAccountName
 # Get (not disabled) accounts that do not require PREAUTH for asreproasting
 ldapsearch "(&(samAccountType=805306368)(servicePrincipalName=*)(!samAccountName=krbtgt)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))"
 
+# Get all service accounts
+ldapsearch "(&(objectCategory=person)(servicePrincipalName=*))"
+
 # Get Windows Servers
 ldapsearch "(&(&(&(&(samAccountType=805306369)(!(primaryGroupId=516)))(objectCategory=computer)(operatingSystem=Windows Server*))))"
 
@@ -711,6 +735,27 @@ ldapsearch "(&(objectCategory=Person)(objectClass=User)(userAccountControl:1.2.8
 
 # All users with Password Never Expires set
 ldapsearch "(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=65536))"
+
+# Unconstrained delegation
+ldapsearch "(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=524288))"
+
+# Constrained delegation
+ldapsearch "(msds-allowedtodelegateto=*)"
+
+# Resource based delegation
+ldapsearch "(msds-allowedtoactonbehalfofotheridentity=*)"
+
+# Group Managed Service Accounts
+ldapsearch "(objectClass=msDS-GroupManagedServiceAccount)"
+
+# LAPS enabled
+ldapsearch "(ms-MCS-AdmPwd=*)"
+
+# Cross domain groups (experimental??)
+"(&(objectCategory=group)(member=*S-1-5-21-*))"
+
+# Users with manage auditing and security log rights
+ldapsearch "(seSecurityPrivilege=*)"
 
 # AD CS queries start ----------
 
